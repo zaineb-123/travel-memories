@@ -16,6 +16,12 @@ const schema = z.object({
   UPLOAD_DIR: z.string().default('uploads'),
   MAX_FILE_SIZE: z.coerce.number().default(5 * 1024 * 1024),
   STORAGE_LIMIT_BYTES: z.coerce.number().default(10 * 1024 * 1024 * 1024),
+
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+
   AUTO_MIGRATE: z
     .enum(['true', 'false'])
     .default('true')
