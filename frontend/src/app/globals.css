@@ -1,0 +1,671 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+@import "@fontsource-variable/hanken-grotesk/index.css";
+@import "@fontsource-variable/newsreader/opsz.css";
+@import "@fontsource-variable/newsreader/opsz-italic.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";
+
+/* ============================================
+   VARIABLES GLOBALES - « CHAQUE SOUVENIR COLORIE UN PAYS »
+   Fond bleu très clair, bleu océan, vermillon des tampons.
+   ============================================ */
+:root {
+  /* Interface */
+  --color-primary: #1F5F7B;
+  --color-primary-dark: #174B62;
+  --color-primary-light: #4A8CA8;
+  --color-secondary: #111A22;
+  --color-secondary-light: #2A3844;
+  --color-background: #F4F5F7;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #FAFAF6;
+  --color-accent: #E3EDF2;
+  --color-border: #E3E7EC;
+  --color-text-primary: #111A22;
+  --color-text-secondary: #46525E;
+  --color-text-muted: #7A8794;
+  --color-success: #2E7D5B;
+  --color-warning: #B8944D;
+  --color-error: #C23B2E;
+
+  /* Carte du monde : pays gris, puis 4 teintes selon le nombre de souvenirs (1, 2, 3-4, 5 et plus) */
+  --map-land: #D9DCE2;
+  --map-1: #6FA3B8;
+  --map-2: #3F8AA6;
+  --map-3: #236A88;
+  --map-4: #124A63;
+
+  /* Tampons et passeport */
+  --stamp-red: #C23B2E;
+  --stamp-blue: #2F4B8F;
+  --stamp-green: #2E7D5B;
+  --passport-cover: #0F3342;
+  --brass: #C9A85C;
+
+  /* Radius */
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.25rem;
+}
+
+/* Variables CSS pour shadcn/ui compatibilité */
+@theme {
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Newsreader Variable", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-text-primary);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text-primary);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text-primary);
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: var(--color-secondary);
+  --color-secondary-foreground: #FFFFFF;
+  --color-muted: var(--color-accent);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-text-primary);
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: var(--color-border);
+  --color-input: var(--color-border);
+  --color-ring: var(--color-primary);
+
+  --radius-lg: var(--radius-lg);
+  --radius-md: var(--radius-md);
+  --radius-sm: var(--radius-sm);
+}
+
+/* L'interface est claire uniquement : les composants utilisent des couleurs fixes, pas de mode sombre. */
+
+/* ============================================
+   TYPOGRAPHIE : serif fin pour les titres et les grands chiffres
+   ============================================ */
+.font-display {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-optical-sizing: auto;
+  letter-spacing: -0.015em;
+}
+
+.font-display-italic {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-style: italic;
+  font-optical-sizing: auto;
+}
+
+/* ============================================
+   CARTE DU MONDE ET TAMPONS
+   ============================================ */
+.tm-country {
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+}
+
+.tm-country-path {
+  transition: fill 0.7s ease;
+}
+
+/* Le tampon s'imprime : il tombe un peu trop gros, puis se pose avec son inclinaison. */
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--stamp-rot, 0deg)) scale(1.7);
+  }
+  55% {
+    opacity: 0.95;
+    transform: rotate(var(--stamp-rot, 0deg)) scale(0.96);
+  }
+  100% {
+    opacity: 0.92;
+    transform: rotate(var(--stamp-rot, 0deg)) scale(1);
+  }
+}
+
+.stamp-in {
+  animation: stamp-in 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* Le compteur « monte » d'un cran. */
+@keyframes count-pop {
+  0% {
+    transform: translateY(40%) scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-6%) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.count-pop {
+  animation: count-pop 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-in,
+  .count-pop {
+    animation: none;
+  }
+  .tm-country-path {
+    transition: none;
+  }
+}
+
+/* ============================================
+   STYLES DE BASE
+   ============================================ */
+@layer base {
+  * {
+    border-color: var(--color-border);
+    outline-color: var(--color-ring);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   SCROLLBAR PERSONNALISÉE
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-accent);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ============================================
+   STYLES LEAFLET (CARTE)
+   ============================================ */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  font-family: var(--font-sans);
+  background-color: var(--color-accent);
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-lg);
+  padding: 0;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Popup personnalisé */
+.memory-popup-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.memory-popup-content {
+  padding: 0.75rem;
+}
+
+.memory-popup-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+  line-clamp: 1;
+  color: var(--color-text-primary);
+}
+
+.memory-popup-location {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.memory-popup-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.memory-popup-link:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   MARQUEUR CUSTOM POUR LA POSITION UTILISATEUR
+   ============================================ */
+.custom-user-marker {
+  background: transparent;
+  border: none;
+}
+
+.user-location-pulse {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  background-color: var(--color-error);
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 0 rgba(194, 59, 46, 0.7);
+  animation: pulse-red 1.5s infinite;
+}
+
+.user-location-pulse::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  background-color: rgba(194, 59, 46, 0.3);
+  border-radius: 50%;
+  animation: ping 1.5s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(194, 59, 46, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(194, 59, 46, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(194, 59, 46, 0);
+  }
+}
+
+@keyframes ping {
+  0% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* ============================================
+   UTILITAIRES POUR TRONQUER LE TEXTE
+   ============================================ */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================
+   SKELETON LOADING
+   ============================================ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-accent) 25%,
+    var(--color-border) 50%,
+    var(--color-accent) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ============================================
+   STYLES POUR FORMULAIRES
+   ============================================ */
+input, textarea, select {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-text-primary);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ============================================
+   STYLES POUR LA NAVIGATION
+   ============================================ */
+.nav-link-active {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+/* ============================================
+   STYLES POUR LA PAGINATION
+   ============================================ */
+.pagination-button {
+  transition: all 0.2s ease;
+}
+
+.pagination-button:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.pagination-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   STYLES POUR LES TOASTS/NOTIFICATIONS
+   ============================================ */
+.toast-success {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.toast-error {
+  background-color: var(--color-error);
+  color: white;
+}
+
+.toast-info {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+/* ============================================
+   STYLES POUR LES MODALES
+   ============================================ */
+.modal-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* ============================================
+   STYLES POUR LE RICHTEXT
+   ============================================ */
+.rich-text-content {
+  line-height: 1.6;
+}
+
+.rich-text-content p {
+  margin-bottom: 1rem;
+}
+
+.rich-text-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin: 1rem 0;
+}
+
+/* ============================================
+   STYLES POUR LES GRILLES
+   ============================================ */
+.memories-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+@media (min-width: 640px) {
+  .memories-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .memories-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+}
+
+/* ============================================
+   STYLES POUR L'UPLOAD D'IMAGES
+   ============================================ */
+.upload-dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s ease;
+  background-color: var(--color-surface-alt);
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.drag-active {
+  border-color: var(--color-primary);
+  background-color: var(--color-accent);
+}
+
+/* ============================================
+   STYLES POUR LES RESPONSIVE IMAGES
+   ============================================ */
+.responsive-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+/* ============================================
+   STYLES POUR LES BADGES
+   ============================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  background-color: var(--color-accent);
+  color: var(--color-text-secondary);
+}
+
+.badge-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.badge-success {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.badge-warning {
+  background-color: var(--color-warning);
+  color: white;
+}
+
+.badge-danger {
+  background-color: var(--color-error);
+  color: white;
+}
+
+/* ============================================
+   STYLES POUR LES CARTES
+   ============================================ */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   STYLES POUR LES BOUTONS
+   ============================================ */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  background-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ============================================
+   UTILITAIRES SUPPLEMENTAIRES
+   ============================================ */
+.bg-wireframe {
+  background-color: var(--color-background);
+}
+
+.text-wireframe-primary {
+  color: var(--color-primary);
+}
+
+.text-wireframe-secondary {
+  color: var(--color-text-secondary);
+}
+
+.border-wireframe {
+  border-color: var(--color-border);
+}
+
+/* Défilement horizontal sans barre (stories, carrousels) */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Marqueurs de carte colorés */
+.tm-pin { background: transparent; border: 0; }
+.tm-story-pin { background: transparent; border: 0; }
+.leaflet-popup-content { margin: 0 !important; width: 220px !important; }
+.leaflet-popup-content-wrapper { padding: 0; overflow: hidden; border-radius: 12px; }
